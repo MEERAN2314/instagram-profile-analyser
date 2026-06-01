@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Profile Analyser — Metrics Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <!-- Lucide Premium Icons via CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- ==========================================
+             APP HEADER
+             ========================================== -->
+        <header class="app-header">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <i data-lucide="bar-chart-3"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>Instagram Profile Analyser</h1>
+                    <p>Advanced bulk scraping & metrics cache dashboard</p>
+                </div>
+            </div>
+            
+            <!-- Settings / Demo Switch Section -->
+            <div class="demo-toggle-card">
+                <div class="demo-toggle-info">
+                    <h4>
+                        <i data-lucide="shield-check"></i>
+                        Demo / Simulation Mode
+                    </h4>
+                    <p>Generates instant mock data, bypassing rate limits</p>
+                </div>
+                <label class="switch-wrapper">
+                    <input type="checkbox" id="demoModeToggle" {% if demo_mode %}checked{% endif %}>
+                    <span class="switch-slider"></span>
+                </label>
+            </div>
+        </header>
+
+        <!-- ==========================================
+             STATISTICS ROW CARDS
+             ========================================== -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Total Cached Profiles</h3>
+                    <div class="stat-value" id="statTotalProfiles">{{ total_profiles }}</div>
+                </div>
+                <div class="stat-icon-wrapper">
+                    <i data-lucide="users"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Combined Audience</h3>
+                    <div class="stat-value" id="statTotalFollowers">{{ total_followers|fmt_number }}</div>
+                </div>
+                <div class="stat-icon-wrapper">
+                    <i data-lucide="trending-up"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Average Post Count</h3>
+                    <div class="stat-value" id="statAvgPosts">{{ avg_posts|fmt_number }}</div>
+                </div>
+                <div class="stat-icon-wrapper">
+                    <i data-lucide="image"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Analysis Success Rate</h3>
+                    <div class="stat-value" id="statSuccessRate">{{ success_rate }}%</div>
+                </div>
+                <div class="stat-icon-wrapper">
+                    <i data-lucide="badge-check"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             DASHBOARD CORE: BULK ACTION
+             ========================================== -->
+        <main class="dashboard-core">
+            <div class="card-panel">
+                <div class="card-header-bar">
+                    <h2 class="card-title">
+                        <i data-lucide="file-text"></i>
+                        Bulk Profile Entry
+                    </h2>
+                </div>
+                
+                <form class="username-form" id="bulkAnalyseForm">
+                    <div class="textarea-wrapper">
+                        <textarea 
+                            class="username-textarea" 
+                            name="usernames_input" 
+                            id="usernamesInput"
+                            placeholder="cristiano&#10;leomessi&#10;taylorswift"
+                            required></textarea>
+                        <div class="textarea-placeholder-tip">Type or paste usernames (one per line)</div>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-primary" id="btnSubmitAnalyse">
+                            <i data-lucide="play-circle"></i>
+                            Analyse Profiles
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+
+        <!-- ==========================================
+             ANALYSED PROFILES: INTERACTIVE DATA TABLE
+             ========================================== -->
+        <section class="dashboard-view-controls">
+            <!-- Search Filter -->
+            <div class="search-input-wrapper">
+                <i data-lucide="search"></i>
+                <input 
+                    type="text" 
+                    id="tableSearchInput" 
+                    class="search-bar" 
+                    placeholder="Search cached profiles..."
+                    onkeyup="filterTable()">
+            </div>
+            
+            <!-- Export Commands -->
+            <div class="table-export-group">
+                <a href="/export/csv" class="btn-secondary">
+                    <i data-lucide="download"></i>
+                    Export CSV
+                </a>
+                <a href="/export/json" class="btn-secondary">
+                    <i data-lucide="file-json"></i>
+                    Export JSON
+                </a>
+            </div>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-scroll-container">
+                <table class="analytics-table" id="profilesTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">
+                                <div class="th-content">Username <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(1)">
+                                <div class="th-content">Full Name <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(2, true)">
+                                <div class="th-content">Followers <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(3, true)">
+                                <div class="th-content">Following <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(4, true)">
+                                <div class="th-content">Posts <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(5)">
+                                <div class="th-content">Scraped Method <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th onclick="sortTable(6)">
+                                <div class="th-content">Last Checked <i data-lucide="arrow-up-down"></i></div>
+                            </th>
+                            <th class="no-sort" style="width: 110px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="profilesTableBody">
+                        {% if profiles %}
+                            {% for p in profiles %}
+                                <tr id="row-{{ p.username }}">
+                                    <!-- Username -->
+                                    <td>
+                                        <div class="profile-ident-block">
+                                            <a href="https://instagram.com/{{ p.username }}" target="_blank" class="profile-username-link">
+                                                @{{ p.username }}
+                                                <i data-lucide="external-link"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Full name -->
+                                    <td class="profile-fullname-cell">{{ p.full_name }}</td>
+                                    
+                                    <!-- Followers -->
+                                    <td data-val="{{ p.followers_count }}">
+                                        <span class="metric-val">{{ p.followers_count|fmt_number }}</span>
+                                    </td>
+                                    
+                                    <!-- Following -->
+                                    <td data-val="{{ p.following_count }}">
+                                        <span class="metric-val">{{ p.following_count|fmt_number }}</span>
+                                    </td>
+                                    
+                                    <!-- Posts -->
+                                    <td data-val="{{ p.posts_count }}">
+                                        <span class="metric-val">{{ p.posts_count|fmt_number }}</span>
+                                    </td>
+                                    
+                                    <!-- Scrape Method -->
+                                    <td>
+                                        <span class="status-pill {{ p.status }}">
+                                            {{ p.status }}
+                                        </span>
+                                    </td>
+                                    
+                                    <!-- Last Checked -->
+                                    <td data-val="{{ p.last_updated }}">
+                                        {{ p.last_updated|fmt_date }}
+                                    </td>
+                                    
+                                    <!-- Actions -->
+                                    <td>
+                                        <div class="actions-cell-group">
+                                            <button 
+                                                onclick="refreshProfile('{{ p.username }}')" 
+                                                class="btn-icon-action refresh-btn" 
+                                                title="Refresh Profile Metrics">
+                                                <i data-lucide="rotate-cw"></i>
+                                            </button>
+                                            <button 
+                                                onclick="deleteProfile('{{ p.username }}')" 
+                                                class="btn-icon-action delete-btn" 
+                                                title="Delete Profile">
+                                                <i data-lucide="trash-2"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <!-- Empty view -->
+                            <tr id="emptyTableRow">
+                                <td colspan="8">
+                                    <div class="empty-table-state">
+                                        <div class="empty-icon-wrapper">
+                                            <i data-lucide="database-backup"></i>
+                                        </div>
+                                        <h3>No Profiles Analysed Yet</h3>
+                                        <p>Paste a list of profile names in the bulk block above to populate the database.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+    </div>
+
+    <!-- ==========================================
+         SSE REAL-TIME SCRAPING DIALOG OVERLAY
+         ========================================== -->
+    <div class="progress-overlay" id="progressOverlay">
+        <div class="progress-modal">
+            <div class="progress-modal-header">
+                <div class="progress-spinner-container">
+                    <div class="custom-spinner"></div>
+                </div>
+                <h2 id="progressHeading">Analysing Profiles...</h2>
+                <p id="progressSubheading">Establishing secure connection to database</p>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            
+            <div class="progress-counts-row">
+                <div id="progressFraction">0 / 0 Completed</div>
+                <div class="current-target-pill" id="progressTargetPill">Starting...</div>
+            </div>
+            
+            <!-- Real-time scroll log terminal -->
+            <div class="progress-logs-box" id="progressLogsBox"></div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         CLIENT JAVASCRIPT CONTROLLERS
+         ========================================== -->
+    <script>
+        // Initialize Lucide line vector icons on document ready
+        lucide.createIcons();
+
+        // -------------------------------------------------------------------
+        // Settings Cookie Toggle (Demo / Live Scraping mode)
+        // -------------------------------------------------------------------
+        const demoModeToggle = document.getElementById('demoModeToggle');
+        demoModeToggle.addEventListener('change', function() {
+            const isDemo = this.checked;
+            document.cookie = `demo_mode=${isDemo}; path=/; max-age=31536000; SameSite=Lax`;
+            console.log(`Demo Mode changed to: ${isDemo}`);
+        });
+
+        // Helper to format cookies
+        function getCookie(name) {
+            const val = `; ${document.cookie}`;
+            const parts = val.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        // -------------------------------------------------------------------
+        // Form Bulk submission AJAX trigger + SSE listener progress connection
+        // -------------------------------------------------------------------
+        const bulkAnalyseForm = document.getElementById('bulkAnalyseForm');
+        bulkAnalyseForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const textarea = document.getElementById('usernamesInput');
+            const inputVal = textarea.value.trim();
+            if (!inputVal) return;
+
+            const btnSubmit = document.getElementById('btnSubmitAnalyse');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<span class="custom-spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;margin-right:8px;"></span>Analysing...`;
+
+            try {
+                // Clear any existing logs in overlay
+                const logsBox = document.getElementById('progressLogsBox');
+                logsBox.innerHTML = '<div class="log-entry">Posting profiles data queue...</div>';
+                
+                // Submit the bulk request
+                const formData = new FormData();
+                formData.append('usernames_input', inputVal);
+                
+                const response = await fetch('/analyse', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert(`Error initiating analysis: ${err.detail || 'Unknown error'}`);
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i data-lucide="play-circle"></i>Analyse Profiles`;
+                    lucide.createIcons();
+                    return;
+                }
+
+                const data = await response.json();
+                const jobId = data.job_id;
+                
+                // Open real-time progress modal
+                const overlay = document.getElementById('progressOverlay');
+                overlay.classList.add('active');
+                
+                // Initialize progress counts
+                document.getElementById('progressFraction').innerText = `0 / ${data.total} Completed`;
+                document.getElementById('progressBarFill').style.width = '0%';
+                
+                // Establish SSE listener stream
+                const eventSource = new EventSource(`/analyse/progress/${jobId}`);
+                let lastLogCount = 0;
+
+                eventSource.onmessage = function(event) {
+                    const statusData = JSON.parse(event.data);
+                    
+                    if (statusData.status === 'not_found') {
+                        eventSource.close();
+                        overlay.classList.remove('active');
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = `<i data-lucide="play-circle"></i>Analyse Profiles`;
+                        lucide.createIcons();
+                        return;
+                    }
+
+                    // Update Progress UI
+                    const done = statusData.done || 0;
+                    const total = statusData.total || 1;
+                    const pct = (done / total) * 100;
+                    
+                    document.getElementById('progressBarFill').style.width = `${pct}%`;
+                    document.getElementById('progressFraction').innerText = `${done} / ${total} Completed`;
+                    
+                    if (statusData.current) {
+                        document.getElementById('progressTargetPill').innerText = `@${statusData.current}`;
+                        document.getElementById('progressHeading').innerText = `Analysing @${statusData.current}...`;
+                    }
+                    
+                    // Populate logs
+                    const logs = statusData.logs || [];
+                    if (logs.length > lastLogCount) {
+                        for (let i = lastLogCount; i < logs.length; i++) {
+                            const entry = document.createElement('div');
+                            entry.className = 'log-entry';
+                            
+                            // Color code indicators
+                            if (logs[i].includes('Analysed') || logs[i].includes('finished')) {
+                                entry.classList.add('success');
+                            } else if (logs[i].includes('Failed') || logs[i].includes('error')) {
+                                entry.classList.add('error');
+                            }
+                            
+                            entry.innerText = logs[i];
+                            logsBox.appendChild(entry);
+                        }
+                        lastLogCount = logs.length;
+                        logsBox.scrollTop = logsBox.scrollHeight;
+                    }
+
+                    // On completion
+                    if (statusData.status === 'completed' || statusData.status === 'failed') {
+                        eventSource.close();
+                        document.getElementById('progressTargetPill').innerText = 'Finished!';
+                        document.getElementById('progressHeading').innerText = 'Analysis Complete!';
+                        
+                        setTimeout(() => {
+                            // Reload the page to load fresh MongoDB data in the tables
+                            window.location.reload();
+                        }, 1200);
+                    }
+                };
+
+                eventSource.onerror = function() {
+                    eventSource.close();
+                    logger.error("SSE stream connection lost.");
+                    setTimeout(() => window.location.reload(), 1500);
+                };
+
+            } catch (err) {
+                alert(`Network error: ${err.message}`);
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = `<i data-lucide="play-circle"></i>Analyse Profiles`;
+                lucide.createIcons();
+            }
+        });
+
+        // -------------------------------------------------------------------
+        // Refresh single profile (AJAX call inline to avoid reloading)
+        // -------------------------------------------------------------------
+        async function refreshProfile(username) {
+            const row = document.getElementById(`row-${username}`);
+            if (!row) return;
+
+            // Apply shimmers to row cell children
+            const cells = row.querySelectorAll('td:not(:last-child)');
+            const oldHtmls = [];
+            cells.forEach((cell, idx) => {
+                oldHtmls[idx] = cell.innerHTML;
+                cell.innerHTML = `<div class="skeleton-box"></div>`;
+            });
+
+            try {
+                const response = await fetch(`/profile/${username}/refresh`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert(`Failed to refresh @${username}: ${err.detail || 'Error'}`);
+                    // Restore original
+                    cells.forEach((cell, idx) => {
+                        cell.innerHTML = oldHtmls[idx];
+                    });
+                    lucide.createIcons();
+                    return;
+                }
+
+                const data = await response.json();
+                const profile = data.profile;
+                
+                // Format helper function for js
+                const fmt = (num) => {
+                    if (num >= 1000000000) return `${(num/1000000000).toFixed(1)}B`.replace('.0', '');
+                    if (num >= 1000000) return `${(num/1000000).toFixed(1)}M`.replace('.0', '');
+                    if (num >= 1000) return `${(num/1000).toFixed(1)}K`.replace('.0', '');
+                    return num.toString();
+                };
+
+                // Restore rows with updated statistics
+                cells[0].innerHTML = `
+                    <div class="profile-ident-block">
+                        <a href="https://instagram.com/${profile.username}" target="_blank" class="profile-username-link">
+                            @${profile.username}
+                            <i data-lucide="external-link"></i>
+                        </a>
+                    </div>
+                `;
+                cells[1].innerText = profile.full_name;
+                cells[1].className = 'profile-fullname-cell';
+                
+                cells[2].setAttribute('data-val', profile.followers_count);
+                cells[2].innerHTML = `<span class="metric-val">${fmt(profile.followers_count)}</span>`;
+                
+                cells[3].setAttribute('data-val', profile.following_count);
+                cells[3].innerHTML = `<span class="metric-val">${fmt(profile.following_count)}</span>`;
+                
+                cells[4].setAttribute('data-val', profile.posts_count);
+                cells[4].innerHTML = `<span class="metric-val">${fmt(profile.posts_count)}</span>`;
+                
+                cells[5].innerHTML = `
+                    <span class="status-pill ${profile.status}">
+                        ${profile.status}
+                    </span>
+                `;
+                
+                // Format current time in JS
+                const now = new Date();
+                const options = { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+                const formattedTime = now.toLocaleDateString('en-US', options).replace(',', '');
+                
+                cells[6].setAttribute('data-val', now.toISOString());
+                cells[6].innerText = formattedTime;
+
+                // Re-evaluate total count stats in cards (best-effort)
+                updateGlobalStatSummary();
+
+                lucide.createIcons();
+
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+                cells.forEach((cell, idx) => {
+                    cell.innerHTML = oldHtmls[idx];
+                });
+                lucide.createIcons();
+            }
+        }
+
+        // -------------------------------------------------------------------
+        // Delete a profile (AJAX call to remove and animate row deletion)
+        // -------------------------------------------------------------------
+        async function deleteProfile(username) {
+            if (!confirm(`Are you sure you want to remove @${username} from database?`)) {
+                return;
+            }
+
+            const row = document.getElementById(`row-${username}`);
+            if (!row) return;
+
+            try {
+                const response = await fetch(`/profile/${username}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert(`Failed to delete profile: ${err.detail || 'Error'}`);
+                    return;
+                }
+
+                // Row deletion animation (shrink and fadeout)
+                row.style.transition = 'all 0.4s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'scale(0.95)';
+                
+                setTimeout(() => {
+                    row.remove();
+                    
+                    // Check if table is empty now
+                    const tbody = document.getElementById('profilesTableBody');
+                    if (tbody.querySelectorAll('tr:not(#emptyTableRow)').length === 0) {
+                        tbody.innerHTML = `
+                            <tr id="emptyTableRow">
+                                <td colspan="8">
+                                    <div class="empty-table-state">
+                                        <div class="empty-icon-wrapper">
+                                            <i data-lucide="database-backup"></i>
+                                        </div>
+                                        <h3>No Profiles Analysed Yet</h3>
+                                        <p>Paste a list of profile names in the bulk block above to populate the database.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        lucide.createIcons();
+                    }
+                    
+                    updateGlobalStatSummary();
+                }, 400);
+
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            }
+        }
+
+        // -------------------------------------------------------------------
+        // Dynamic Statistics Card summary recalibrator in JS
+        // -------------------------------------------------------------------
+        function updateGlobalStatSummary() {
+            const tbody = document.getElementById('profilesTableBody');
+            const rows = tbody.querySelectorAll('tr:not(#emptyTableRow)');
+            const totalProfiles = rows.length;
+            
+            let combinedAudience = 0;
+            let combinedPosts = 0;
+            let successCount = 0;
+
+            rows.forEach(r => {
+                const followers = parseInt(r.cells[2].getAttribute('data-val') || 0);
+                const posts = parseInt(r.cells[4].getAttribute('data-val') || 0);
+                const statusPill = r.querySelector('.status-pill');
+                const isSuccess = statusPill && (statusPill.classList.contains('success') || statusPill.classList.contains('simulated'));
+
+                combinedAudience += followers;
+                combinedPosts += posts;
+                if (isSuccess) successCount++;
+            });
+
+            const fmt = (num) => {
+                if (num >= 1000000000) return `${(num/1000000000).toFixed(1)}B`.replace('.0', '');
+                if (num >= 1000000) return `${(num/1000000).toFixed(1)}M`.replace('.0', '');
+                if (num >= 1000) return `${(num/1000).toFixed(1)}K`.replace('.0', '');
+                return num.toString();
+            };
+
+            const avgPosts = totalProfiles > 0 ? Math.round(combinedPosts / totalProfiles) : 0;
+            const successRate = totalProfiles > 0 ? ((successCount / totalProfiles) * 100).toFixed(1) : '0';
+
+            document.getElementById('statTotalProfiles').innerText = totalProfiles;
+            document.getElementById('statTotalFollowers').innerText = fmt(combinedAudience);
+            document.getElementById('statAvgPosts').innerText = fmt(avgPosts);
+            document.getElementById('statSuccessRate').innerText = `${successRate}%`;
+        }
+
+        // -------------------------------------------------------------------
+        // Search Filter Client Side (instant typing filtering)
+        // -------------------------------------------------------------------
+        function filterTable() {
+            const input = document.getElementById('tableSearchInput');
+            const filter = input.value.toLowerCase().trim();
+            const tbody = document.getElementById('profilesTableBody');
+            const rows = tbody.querySelectorAll('tr:not(#emptyTableRow)');
+
+            rows.forEach(row => {
+                const usernameCell = row.cells[0].innerText.toLowerCase();
+                const fullnameCell = row.cells[1].innerText.toLowerCase();
+                const statusCell = row.cells[5].innerText.toLowerCase();
+                
+                if (usernameCell.includes(filter) || fullnameCell.includes(filter) || statusCell.includes(filter)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // -------------------------------------------------------------------
+        // Sort Table Logic (Click headers to sort instantly with animations)
+        // -------------------------------------------------------------------
+        let currentSortCol = -1;
+        let isSortAsc = true;
+
+        function sortTable(colIndex, isNumeric = false) {
+            const table = document.getElementById('profilesTable');
+            const tbody = document.getElementById('profilesTableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(#emptyTableRow)'));
+            
+            if (rows.length === 0) return;
+
+            // Toggle Sort Order
+            if (currentSortCol === colIndex) {
+                isSortAsc = !isSortAsc;
+            } else {
+                currentSortCol = colIndex;
+                isSortAsc = true;
+            }
+
+            // Remove previous sort classes from th headers
+            const headers = table.querySelectorAll('thead th');
+            headers.forEach(h => {
+                const icon = h.querySelector('svg');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            });
+
+            // Rotate clicked icon indicator
+            const activeHeader = headers[colIndex];
+            const activeIcon = activeHeader.querySelector('svg');
+            if (activeIcon) {
+                activeIcon.style.transform = isSortAsc ? 'rotate(180deg)' : 'rotate(0deg)';
+            }
+
+            // Sort Rows Array
+            rows.sort((a, b) => {
+                let valA, valB;
+                
+                if (isNumeric) {
+                    valA = parseInt(a.cells[colIndex].getAttribute('data-val') || 0);
+                    valB = parseInt(b.cells[colIndex].getAttribute('data-val') || 0);
+                    return isSortAsc ? valA - valB : valB - valA;
+                } else {
+                    valA = a.cells[colIndex].innerText.toLowerCase().trim();
+                    valB = b.cells[colIndex].innerText.toLowerCase().trim();
+                    if (valA < valB) return isSortAsc ? -1 : 1;
+                    if (valA > valB) return isSortAsc ? 1 : -1;
+                    return 0;
+                }
+            });
+
+            // Append sorted rows back (clears and redraws)
+            tbody.innerHTML = '';
+            rows.forEach((row, idx) => {
+                row.style.animationDelay = `${idx * 0.03}s`;
+                tbody.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
